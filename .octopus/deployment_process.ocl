@@ -68,7 +68,8 @@ step "link-pull-request" {
                 REPO_URL="https://github.com/example-org/storefront"
                 
                 if [ -z "$PR" ]; then
-                  fail_step "No pull request number found on this release"
+                  echo "No pull request number on this release, skipping"
+                  exit 0
                 fi
                 
                 echo "Deployed to $ENVIRONMENT for pull request #$PR"
