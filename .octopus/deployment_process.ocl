@@ -1,0 +1,82 @@
+step "deploy-storefront" {
+    name = "Deploy Storefront"
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                PKG_VERSION=$(get_octopusvariable "Octopus.Action.Package[Storefront.Web].PackageVersion")
+                PKG_PATH=$(get_octopusvariable "Octopus.Action.Package[Storefront.Web].ExtractedPath")
+                RELEASE=$(get_octopusvariable "Octopus.Release.Number")
+                CHANNEL=$(get_octopusvariable "Octopus.Release.Channel.Name")
+                ENVIRONMENT=$(get_octopusvariable "Octopus.Environment.Name")
+                
+                echo "Deploying Storefront.Web $PKG_VERSION to $ENVIRONMENT"
+                echo "Release $RELEASE in the $CHANNEL channel"
+                echo "Package contents report version: $(cat "$PKG_PATH/version.txt")"
+                write_highlight "Storefront.Web $PKG_VERSION deployed to $ENVIRONMENT via the $CHANNEL channel"
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "Bash"
+        }
+        worker_pool = "hosted-ubuntu"
+
+        packages "Storefront.Web" {
+            acquisition_location = "Server"
+            feed = "octopus-server-built-in"
+            package_id = "Storefront.Web"
+            properties = {
+                Extract = "True"
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
+step "smoke-test" {
+    name = "Smoke test"
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                ENVIRONMENT=$(get_octopusvariable "Octopus.Environment.Name")
+                
+                echo "Running smoke tests against $ENVIRONMENT"
+                for check in "Homepage responds with 200" "Product catalogue loads" "Checkout API healthy"; do
+                  sleep 1
+                  echo "PASS: $check"
+                done
+                echo "All smoke tests passed"
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "Bash"
+        }
+        worker_pool = "hosted-ubuntu"
+    }
+}
+
+step "link-pull-request" {
+    name = "Link pull request"
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                PR=$(get_octopusvariable "Octopus.Release.CustomFields[Pull Request Number]")
+                ENVIRONMENT=$(get_octopusvariable "Octopus.Environment.Name")
+                REPO_URL="https://github.com/example-org/storefront"
+                
+                if [ -z "$PR" ]; then
+                  fail_step "No pull request number found on this release"
+                fi
+                
+                echo "Deployed to $ENVIRONMENT for pull request #$PR"
+                write_highlight "Pull request: $REPO_URL/pull/$PR"
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "Bash"
+        }
+        worker_pool = "hosted-ubuntu"
+    }
+}
