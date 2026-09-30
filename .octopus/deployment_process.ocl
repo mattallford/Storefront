@@ -55,29 +55,3 @@ step "smoke-test" {
         worker_pool = "hosted-ubuntu"
     }
 }
-
-step "link-pull-request" {
-    name = "Link pull request"
-
-    action {
-        action_type = "Octopus.Script"
-        properties = {
-            Octopus.Action.Script.ScriptBody = <<-EOT
-                PR=$(get_octopusvariable "Octopus.Release.CustomFields[Pull Request Number]")
-                ENVIRONMENT=$(get_octopusvariable "Octopus.Environment.Name")
-                REPO_URL="https://github.com/example-org/storefront"
-                
-                if [ -z "$PR" ]; then
-                  echo "No pull request number on this release, skipping"
-                  exit 0
-                fi
-                
-                echo "Deployed to $ENVIRONMENT for pull request #$PR"
-                write_highlight "Pull request: $REPO_URL/pull/$PR"
-                EOT
-            Octopus.Action.Script.ScriptSource = "Inline"
-            Octopus.Action.Script.Syntax = "Bash"
-        }
-        worker_pool = "hosted-ubuntu"
-    }
-}
